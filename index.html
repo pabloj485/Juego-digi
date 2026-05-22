@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escape Room: El Archivo Misterioso</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --border: #1e3a5f;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6b;
+    --text: #c9d6e8;
+    --muted: #4a5568;
+    --success: #00ff88;
+    --danger: #ff4757;
+    --warn: #ffd32a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(255,107,53,0.04) 0%, transparent 50%);
+  }
+
+  /* SCANLINE EFFECT */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* HEADER */
+  .header { text-align: center; margin-bottom: 2.5rem; padding: 2rem; position: relative; }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 80px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .header .badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    opacity: 0.8;
+  }
+  .header h1 {
+    font-size: clamp(1.8rem, 5vw, 3rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p {
+    font-weight: 300;
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .stat {
+    flex: 1;
+    min-width: 120px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .stat-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  #timer-val { color: var(--warn); }
+  #score-val { color: var(--accent3); }
+  #room-val { color: var(--accent); }
+
+  /* PROGRESS */
+  .progress-track {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .progress-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+  }
+  .progress-bar-bg {
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    transition: width 0.5s ease;
+  }
+  .progress-rooms {
+    display: flex;
+    gap: 6px;
+    margin-top: 0.6rem;
+  }
+  .room-dot {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--muted);
+    opacity: 0.3;
+    transition: all 0.3s;
+  }
+  .room-dot.done { background: var(--accent3); opacity: 1; }
+  .room-dot.active { background: var(--accent); opacity: 1; animation: pulse-dot 1.5s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ROOM CARD */
+  .room-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    animation: fadein 0.4s ease;
+  }
+  @keyframes fadein { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .room-card-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .room-icon {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .room-card-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .room-card-header p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  .room-body { padding: 1.5rem; }
+
+  /* PUZZLE TYPES */
+  /* MATCH puzzle */
+  .puzzle-narration {
+    font-size: 0.9rem;
+    color: var(--text);
+    font-weight: 300;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(0,212,255,0.04);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+  }
+  .match-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .match-col-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .match-items { display: flex; flex-direction: column; gap: 8px; }
+  .match-item {
+    padding: 0.65rem 1rem;
+    border-radius: 7px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    user-select: none;
+  }
+  .match-item:hover { border-color: var(--accent); background: rgba(0,212,255,0.06); }
+  .match-item.selected { border-color: var(--accent); background: rgba(0,212,255,0.12); color: var(--accent); }
+  .match-item.matched { border-color: var(--success); background: rgba(0,255,136,0.08); color: var(--success); cursor: default; }
+  .match-item.wrong { border-color: var(--danger); background: rgba(255,71,87,0.1); animation: shake 0.4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  /* QUIZ puzzle */
+  .quiz-question {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+  }
+  .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+  .quiz-option {
+    padding: 0.75rem 1.1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .quiz-option:hover { border-color: var(--accent); background: rgba(0,212,255,0.06); }
+  .quiz-option.correct { border-color: var(--success); background: rgba(0,255,136,0.08); color: var(--success); cursor: default; }
+  .quiz-option.wrong { border-color: var(--danger); background: rgba(255,71,87,0.08); color: var(--danger); cursor: default; }
+  .quiz-option-dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* SORT puzzle */
+  .sort-instructions { font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem; font-weight: 300; }
+  .sort-target {
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed var(--muted);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    min-height: 52px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    transition: border-color 0.2s;
+  }
+  .sort-target.drag-over { border-color: var(--accent); background: rgba(0,212,255,0.04); }
+  .sort-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+  .sort-chip {
+    padding: 0.4rem 0.85rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    cursor: grab;
+    user-select: none;
+    transition: all 0.2s;
+  }
+  .sort-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .sort-chip.dragging { opacity: 0.4; }
+  .sort-chip.placed { background: rgba(0,212,255,0.08); border-color: var(--accent); color: var(--accent); cursor: grab; }
+  .sort-chip.correct-placed { background: rgba(0,255,136,0.08); border-color: var(--success); color: var(--success); }
+  .sort-category-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .sort-row { margin-bottom: 1rem; }
+
+  /* FEEDBACK */
+  .feedback {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 7px;
+    font-size: 0.88rem;
+    display: none;
+    animation: fadein 0.3s;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3); color: var(--success); }
+  .feedback.err { background: rgba(255,71,87,0.08); border: 1px solid rgba(255,71,87,0.3); color: var(--danger); }
+
+  /* BUTTONS */
+  .btn {
+    padding: 0.75rem 1.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .btn:hover { background: rgba(0,212,255,0.1); }
+  .btn:active { transform: scale(0.97); }
+  .btn-check {
+    border-color: var(--accent3);
+    color: var(--accent3);
+  }
+  .btn-check:hover { background: rgba(127,255,107,0.08); }
+  .btn-row { display: flex; gap: 10px; margin-top: 1.25rem; flex-wrap: wrap; }
+
+  /* COMPLETED */
+  .completed-banner {
+    display: none;
+    text-align: center;
+    padding: 2.5rem 2rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    animation: fadein 0.5s;
+  }
+  .completed-banner.show { display: block; }
+  .completed-banner .big { font-size: 3.5rem; margin-bottom: 1rem; }
+  .completed-banner h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--accent3); }
+  .completed-banner p { color: var(--muted); font-weight: 300; font-size: 0.95rem; margin-bottom: 0.5rem; }
+  .final-score { font-family: 'Share Tech Mono', monospace; font-size: 2rem; color: var(--accent); margin: 1rem 0; }
+
+  /* FILE BADGE */
+  .ext-badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin: 0 2px;
+    font-weight: 600;
+  }
+
+  /* LOCK ICON */
+  .lock-bar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 1.25rem;
+  }
+  .lock-pip {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .lock-pip.active { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .lock-pip.done { background: var(--success); }
+
+  @media (max-width: 600px) {
+    .match-grid { grid-template-columns: 1fr 1fr; }
+    .match-item { font-size: 0.75rem; padding: 0.5rem 0.7rem; }
+    .stats-bar .stat { min-width: 90px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="badge">// misión clasificada //</div>
+    <h1>Escape Room<br><span>El Archivo Misterioso</span></h1>
+    <p>El servidor está bloqueado. Identifica las extensiones para liberar cada sala.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-label">Sala</span>
+      <span class="stat-value" id="room-val">1 / 5</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Puntuación</span>
+      <span class="stat-value" id="score-val">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Tiempo</span>
+      <span class="stat-value" id="timer-val">05:00</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Vidas</span>
+      <span class="stat-value" id="lives-val">❤️❤️❤️</span>
+    </div>
+  </div>
+
+  <div class="progress-track">
+    <div class="progress-label">Progreso del escape</div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-rooms" id="room-dots"></div>
+  </div>
+
+  <div id="game-area"></div>
+
+  <div class="completed-banner" id="end-screen">
+    <div class="big">🏆</div>
+    <h2>¡Servidor liberado!</h2>
+    <p>Has completado el Escape Room con éxito.</p>
+    <div class="final-score" id="final-score">0 pts</div>
+    <p id="final-msg"></p>
+    <div style="margin-top:1.5rem">
+      <button class="btn" onclick="restartGame()">↩ Jugar de nuevo</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ROOMS = [
+  {
+    id: 1,
+    title: "Sala 1: El almacén de documentos",
+    subtitle: "Empareja cada extensión con su tipo de archivo",
+    icon: "📄",
+    iconBg: "rgba(0,212,255,0.12)",
+    type: "match",
+    narration: "El agente ha encontrado una carpeta con archivos sin identificar. Para abrir el primer candado, debes emparejar cada extensión con su categoría correcta.",
+    pairs: [
+      { ext: ".pdf", type: "Documento portátil" },
+      { ext: ".docx", type: "Documento Word" },
+      { ext: ".xlsx", type: "Hoja de cálculo" },
+      { ext: ".pptx", type: "Presentación" },
+      { ext: ".txt", type: "Texto plano" },
+    ]
+  },
+  {
+    id: 2,
+    title: "Sala 2: La galería oculta",
+    subtitle: "¿A qué tipo de archivo pertenece cada extensión?",
+    icon: "🖼️",
+    iconBg: "rgba(127,255,107,0.1)",
+    type: "quiz",
+    narration: "La galería del servidor contiene imágenes, vídeos y audio mezclados. Responde las preguntas para clasificarlos y desbloquear el siguiente nivel.",
+    questions: [
+      {
+        q: "Un archivo con extensión <span class='ext-badge' style='background:rgba(0,212,255,0.15);color:#00d4ff'>.mp3</span> contiene...",
+        options: ["Una imagen vectorial", "Audio comprimido", "Un documento de texto", "Una hoja de cálculo"],
+        correct: 1,
+        explanation: ".mp3 es el formato de audio más popular, usa compresión con pérdida."
+      },
+      {
+        q: "¿Qué tipo de archivo es <span class='ext-badge' style='background:rgba(127,255,107,0.15);color:#7fff6b'>.svg</span>?",
+        options: ["Imagen de mapa de bits", "Archivo de vídeo", "Imagen vectorial escalable", "Fuente tipográfica"],
+        correct: 2,
+        explanation: "SVG (Scalable Vector Graphics) es una imagen vectorial basada en XML que no pierde calidad al escalar."
+      },
+      {
+        q: "Un archivo <span class='ext-badge' style='background:rgba(255,107,53,0.15);color:#ff6b35'>.gif</span> es...",
+        options: ["Solo imágenes estáticas", "Un formato de vídeo HD", "Imagen con soporte de animación sencilla", "Un archivo de audio"],
+        correct: 2,
+        explanation: "GIF soporta animación mediante múltiples fotogramas y tiene una paleta de 256 colores."
+      },
+    ]
+  },
+  {
+    id: 3,
+    title: "Sala 3: La sala de código",
+    subtitle: "Clasifica los archivos en su categoría correcta",
+    icon: "💻",
+    iconBg: "rgba(255,107,53,0.1)",
+    type: "sort",
+    narration: "El director de sistemas ha mezclado archivos de código con archivos comprimidos y ejecutables. Arrástralos a su categoría para recuperar el acceso.",
+    categories: [
+      { label: "Archivos de código / web", items: [".html", ".css", ".js", ".py"] },
+      { label: "Archivos comprimidos", items: [".zip", ".rar", ".tar", ".7z"] },
+      { label: "Ejecutables / sistema", items: [".exe", ".dmg", ".apk", ".bat"] },
+    ]
+  },
+  {
+    id: 4,
+    title: "Sala 4: El cuarto de datos",
+    subtitle: "Responde sobre bases de datos y datos estructurados",
+    icon: "🗄️",
+    iconBg: "rgba(0,212,255,0.08)",
+    type: "quiz",
+    narration: "Los datos del servidor están en varios formatos. Demuestra que conoces los formatos de intercambio y bases de datos para seguir avanzando.",
+    questions: [
+      {
+        q: "¿Qué formato usa la extensión <span class='ext-badge' style='background:rgba(255,211,42,0.15);color:#ffd32a'>.json</span>?",
+        options: ["Texto con tabuladores", "Objetos JavaScript serializado (pares clave-valor)", "Binario propietario", "Lenguaje de marcado con etiquetas"],
+        correct: 1,
+        explanation: "JSON (JavaScript Object Notation) usa pares clave-valor y es el estándar de intercambio de datos en APIs web."
+      },
+      {
+        q: "Un archivo <span class='ext-badge' style='background:rgba(0,255,136,0.12);color:#00ff88'>.csv</span> almacena datos...",
+        options: ["En formato XML con esquema", "Separados por comas, legibles en cualquier hoja de cálculo", "En binario cifrado", "Como base de datos relacional"],
+        correct: 1,
+        explanation: "CSV (Comma-Separated Values) es el formato más universal para datos tabulares: filas y columnas separadas por comas."
+      },
+      {
+        q: "¿Qué extensión pertenece a una base de datos SQLite?",
+        options: [".db / .sqlite", ".psd", ".iso", ".dll"],
+        correct: 0,
+        explanation: ".db y .sqlite son extensiones comunes de bases de datos SQLite, el motor de base de datos embebido más usado del mundo."
+      },
+    ]
+  },
+  {
+    id: 5,
+    title: "Sala 5: El servidor final",
+    subtitle: "El desafío maestro de extensiones",
+    icon: "🔐",
+    iconBg: "rgba(255,107,53,0.08)",
+    type: "match",
+    narration: "Último candado. El servidor central mezcla todo tipo de archivos: fuentes, diseño, vídeo y 3D. Empareja correctamente para liberar el sistema.",
+    pairs: [
+      { ext: ".ttf", type: "Fuente tipográfica" },
+      { ext: ".psd", type: "Proyecto Photoshop" },
+      { ext: ".mp4", type: "Vídeo comprimido H.264" },
+      { ext: ".obj", type: "Modelo 3D" },
+      { ext: ".iso", type: "Imagen de disco óptico" },
+    ]
+  }
+];
+
+let currentRoom = 0;
+let score = 0;
+let lives = 3;
+let timeLeft = 300;
+let timerInterval;
+let matchState = {};
+
+function init() {
+  currentRoom = 0; score = 0; lives = 3; timeLeft = 300;
+  document.getElementById('end-screen').classList.remove('show');
+  buildDots();
+  renderRoom();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(tick, 1000);
+}
+
+function buildDots() {
+  const d = document.getElementById('room-dots');
+  d.innerHTML = '';
+  ROOMS.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'room-dot' + (i === 0 ? ' active' : '');
+    dot.id = 'dot-' + i;
+    d.appendChild(dot);
+  });
+}
+
+function updateStats() {
+  document.getElementById('room-val').textContent = (currentRoom + 1) + ' / ' + ROOMS.length;
+  document.getElementById('score-val').textContent = score;
+  const m = String(Math.floor(timeLeft/60)).padStart(2,'0');
+  const s = String(timeLeft%60).padStart(2,'0');
+  document.getElementById('timer-val').textContent = m + ':' + s;
+  const livesArr = ['','❤️','❤️❤️','❤️❤️❤️'];
+  document.getElementById('lives-val').textContent = livesArr[Math.max(0,lives)] || '💀';
+  const pct = (currentRoom / ROOMS.length) * 100;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  ROOMS.forEach((_, i) => {
+    const dot = document.getElementById('dot-' + i);
+    if (!dot) return;
+    dot.className = 'room-dot' + (i < currentRoom ? ' done' : i === currentRoom ? ' active' : '');
+  });
+}
+
+function tick() {
+  timeLeft--;
+  updateStats();
+  if (timeLeft <= 0) {
+    clearInterval(timerInterval);
+    endGame(false);
+  }
+}
+
+function renderRoom() {
+  updateStats();
+  const room = ROOMS[currentRoom];
+  const ga = document.getElementById('game-area');
+  if (room.type === 'match') ga.innerHTML = buildMatch(room);
+  else if (room.type === 'quiz') ga.innerHTML = buildQuiz(room);
+  else if (room.type === 'sort') ga.innerHTML = buildSort(room);
+  if (room.type === 'match') initMatch(room);
+  if (room.type === 'sort') initSort(room);
+}
+
+/* ===== MATCH ===== */
+function buildMatch(room) {
+  return `
+    <div class="room-card">
+      <div class="room-card-header">
+        <div class="room-icon" style="background:${room.iconBg}">${room.icon}</div>
+        <div>
+          <h2>${room.title}</h2>
+          <p>${room.subtitle}</p>
+        </div>
+      </div>
+      <div class="room-body">
+        <div class="puzzle-narration">${room.narration}</div>
+        <div class="match-grid">
+          <div>
+            <div class="match-col-label">Extensiones</div>
+            <div class="match-items" id="col-ext">
+              ${room.pairs.map((p,i) => `<div class="match-item" id="ext-${i}" onclick="selectExt(${i})">${p.ext}</div>`).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="match-col-label">Tipo de archivo</div>
+            <div class="match-items" id="col-type">
+              ${shuffle([...room.pairs.map((p,i)=>({...p, idx:i}))]).map((p,i) => `<div class="match-item" id="type-${p.idx}" onclick="selectType(${p.idx})">${p.type}</div>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="feedback" id="match-feedback"></div>
+      </div>
+    </div>`;
+}
+
+function initMatch(room) {
+  matchState = { selected: null, matched: [], wrong: 0, total: room.pairs.length };
+}
+
+function selectExt(i) {
+  if (matchState.matched.includes(i)) return;
+  if (matchState.selected && matchState.selected.kind === 'ext' && matchState.selected.i === i) {
+    document.getElementById('ext-' + i).classList.remove('selected');
+    matchState.selected = null; return;
+  }
+  if (matchState.selected && matchState.selected.kind === 'ext') {
+    document.getElementById('ext-' + matchState.selected.i).classList.remove('selected');
+  }
+  if (matchState.selected && matchState.selected.kind === 'type') {
+    tryMatch('ext', i);
+  } else {
+    document.getElementById('ext-' + i).classList.add('selected');
+    matchState.selected = { kind: 'ext', i };
+  }
+}
+
+function selectType(i) {
+  if (matchState.matched.includes(i)) return;
+  if (matchState.selected && matchState.selected.kind === 'type' && matchState.selected.i === i) {
+    document.getElementById('type-' + i).classList.remove('selected');
+    matchState.selected = null; return;
+  }
+  if (matchState.selected && matchState.selected.kind === 'type') {
+    document.getElementById('type-' + matchState.selected.i).classList.remove('selected');
+  }
+  if (matchState.selected && matchState.selected.kind === 'ext') {
+    tryMatch('type', i);
+  } else {
+    document.getElementById('type-' + i).classList.add('selected');
+    matchState.selected = { kind: 'type', i };
+  }
+}
+
+function tryMatch(secondKind, secondI) {
+  const extIdx = secondKind === 'type' ? matchState.selected.i : secondI;
+  const typeIdx = secondKind === 'type' ? secondI : matchState.selected.i;
+
+  document.getElementById('ext-' + extIdx).classList.remove('selected');
+  document.getElementById('type-' + typeIdx).classList.remove('selected');
+
+  if (extIdx === typeIdx) {
+    document.getElementById('ext-' + extIdx).classList.add('matched');
+    document.getElementById('type-' + typeIdx).classList.add('matched');
+    matchState.matched.push(extIdx);
+    score += 20;
+    showFeedback('match-feedback', '✓ ¡Correcto! +20 puntos', true);
+    if (matchState.matched.length === matchState.total) {
+      setTimeout(() => nextRoom(), 900);
+    }
+  } else {
+    document.getElementById('ext-' + extIdx).classList.add('wrong');
+    document.getElementById('type-' + typeIdx).classList.add('wrong');
+    loseLife();
+    showFeedback('match-feedback', '✗ Ese par no es correcto. Inténtalo de nuevo.', false);
+    setTimeout(() => {
+      document.getElementById('ext-' + extIdx).classList.remove('wrong');
+      document.getElementById('type-' + typeIdx).classList.remove('wrong');
+    }, 700);
+  }
+  matchState.selected = null;
+  updateStats();
+}
+
+/* ===== QUIZ ===== */
+let quizIdx = 0;
+function buildQuiz(room) {
+  quizIdx = 0;
+  return `
+    <div class="room-card" id="quiz-card">
+      <div class="room-card-header">
+        <div class="room-icon" style="background:${room.iconBg}">${room.icon}</div>
+        <div>
+          <h2>${room.title}</h2>
+          <p>${room.subtitle}</p>
+        </div>
+      </div>
+      <div class="room-body">
+        <div class="puzzle-narration">${room.narration}</div>
+        <div id="quiz-inner">${buildQuizQuestion(room, 0)}</div>
+      </div>
+    </div>`;
+}
+
+function buildQuizQuestion(room, idx) {
+  const q = room.questions[idx];
+  return `
+    <div class="quiz-question">(${idx+1}/${room.questions.length}) ${q.q}</div>
+    <div class="quiz-options">
+      ${q.options.map((o,i) => `
+        <div class="quiz-option" id="qopt-${i}" onclick="answerQuiz(${i})">
+          <div class="quiz-option-dot">${String.fromCharCode(65+i)}</div>
+          ${o}
+        </div>`).join('')}
+    </div>
+    <div class="feedback" id="quiz-feedback"></div>`;
+}
+
+function answerQuiz(chosen) {
+  const room = ROOMS[currentRoom];
+  const q = room.questions[quizIdx];
+  document.querySelectorAll('.quiz-option').forEach(el => el.onclick = null);
+  document.getElementById('qopt-' + chosen).classList.add(chosen === q.correct ? 'correct' : 'wrong');
+  if (chosen !== q.correct) {
+    document.getElementById('qopt-' + q.correct).classList.add('correct');
+    loseLife();
+    showFeedback('quiz-feedback', '✗ ' + q.explanation, false);
+  } else {
+    score += 25;
+    showFeedback('quiz-feedback', '✓ ¡Exacto! ' + q.explanation + ' +25 puntos', true);
+  }
+  updateStats();
+  setTimeout(() => {
+    quizIdx++;
+    if (quizIdx >= room.questions.length) nextRoom();
+    else document.getElementById('quiz-inner').innerHTML = buildQuizQuestion(room, quizIdx);
+  }, 1600);
+}
+
+/* ===== SORT ===== */
+let sortState = {};
+function buildSort(room) {
+  const allItems = room.categories.flatMap(c => c.items);
+  const shuffled = shuffle([...allItems]);
+  sortState = { placed: {}, categories: room.categories };
+  const catHtml = room.categories.map((cat, ci) => `
+    <div class="sort-row">
+      <div class="sort-category-label">${cat.label}</div>
+      <div class="sort-target" id="drop-${ci}" ondragover="allowDrop(event)" ondrop="dropItem(event,${ci})" ondragenter="this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')"></div>
+    </div>`).join('');
+  const chipsHtml = `<div class="sort-chips" id="chip-pool">${shuffled.map(item => `<div class="sort-chip" draggable="true" id="chip-${item}" ondragstart="dragStart(event,'${item}')">${item}</div>`).join('')}</div>`;
+  return `
+    <div class="room-card">
+      <div class="room-card-header">
+        <div class="room-icon" style="background:${room.iconBg}">${room.icon}</div>
+        <div>
+          <h2>${room.title}</h2>
+          <p>${room.subtitle}</p>
+        </div>
+      </div>
+      <div class="room-body">
+        <div class="puzzle-narration">${room.narration}</div>
+        <div class="sort-instructions">Arrastra cada extensión a su categoría correcta.</div>
+        ${chipsHtml}
+        ${catHtml}
+        <div class="feedback" id="sort-feedback"></div>
+        <div class="btn-row">
+          <button class="btn btn-check" onclick="checkSort()">Comprobar clasificación</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+let dragged = null;
+function dragStart(e, item) {
+  dragged = item;
+  e.dataTransfer.setData('text/plain', item);
+  setTimeout(() => document.getElementById('chip-' + item).classList.add('dragging'), 0);
+}
+function allowDrop(e) { e.preventDefault(); }
+function dropItem(e, catIdx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragged) return;
+  const item = dragged;
+  dragged = null;
+  const chip = document.getElementById('chip-' + item);
+  if (chip) chip.classList.remove('dragging');
+
+  const target = document.getElementById('drop-' + catIdx);
+  if (!target.querySelector('#placed-' + item.replace('.', '_'))) {
+    const tag = document.createElement('div');
+    tag.className = 'sort-chip placed';
+    tag.id = 'placed-' + item.replace('.', '_');
+    tag.textContent = item;
+    tag.draggable = true;
+    tag.ondragstart = (ev) => { dragStart(ev, item); };
+    tag.ondblclick = () => { returnChip(item, catIdx); };
+    target.appendChild(tag);
+    if (chip) chip.style.display = 'none';
+    if (!sortState.placed[catIdx]) sortState.placed[catIdx] = [];
+    sortState.placed[catIdx].push(item);
+  }
+}
+function returnChip(item, catIdx) {
+  const placed = document.getElementById('placed-' + item.replace('.', '_'));
+  if (placed) placed.remove();
+  const chip = document.getElementById('chip-' + item);
+  if (chip) chip.style.display = '';
+  if (sortState.placed[catIdx]) sortState.placed[catIdx] = sortState.placed[catIdx].filter(x => x !== item);
+}
+function checkSort() {
+  const room = ROOMS[currentRoom];
+  let allCorrect = true;
+  let feedback = [];
+  room.categories.forEach((cat, ci) => {
+    const placed = sortState.placed[ci] || [];
+    placed.forEach(item => {
+      const inRight = cat.items.includes(item);
+      const placedEl = document.getElementById('placed-' + item.replace('.', '_'));
+      if (!inRight) { allCorrect = false; if (placedEl) placedEl.style.borderColor = 'var(--danger)'; feedback.push(item + ' no es de esa categoría.'); }
+      else { if (placedEl) { placedEl.classList.remove('placed'); placedEl.classList.add('correct-placed'); } }
+    });
+  });
+  const totalPlaced = Object.values(sortState.placed).flat().length;
+  const totalItems = room.categories.flatMap(c => c.items).length;
+  if (totalPlaced < totalItems) { showFeedback('sort-feedback', '✗ Faltan extensiones por clasificar.', false); loseLife(); updateStats(); return; }
+  if (!allCorrect) { showFeedback('sort-feedback', '✗ Algunos archivos están mal clasificados. Pista: ' + feedback[0], false); loseLife(); updateStats(); return; }
+  score += 50;
+  showFeedback('sort-feedback', '✓ ¡Clasificación perfecta! +50 puntos', true);
+  updateStats();
+  setTimeout(() => nextRoom(), 1200);
+}
+
+/* ===== UTILS ===== */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function showFeedback(id, msg, ok) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'feedback show ' + (ok ? 'ok' : 'err');
+}
+
+function loseLife() {
+  lives = Math.max(0, lives - 1);
+  if (lives === 0) {
+    clearInterval(timerInterval);
+    setTimeout(() => endGame(false), 500);
+  }
+}
+
+function nextRoom() {
+  currentRoom++;
+  if (currentRoom >= ROOMS.length) { clearInterval(timerInterval); endGame(true); return; }
+  updateStats();
+  renderRoom();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function endGame(won) {
+  clearInterval(timerInterval);
+  document.getElementById('game-area').innerHTML = '';
+  const end = document.getElementById('end-screen');
+  end.classList.add('show');
+  if (won) {
+    const bonus = Math.floor(timeLeft * 0.5);
+    score += bonus;
+    end.querySelector('.big').textContent = '🏆';
+    end.querySelector('h2').textContent = '¡Servidor liberado!';
+    end.querySelector('p').textContent = 'Has superado las 5 salas. Bonus de tiempo: +' + bonus + ' pts';
+  } else {
+    end.querySelector('.big').textContent = lives === 0 ? '💀' : '⏰';
+    end.querySelector('h2').textContent = lives === 0 ? '¡Sin vidas!' : '¡Tiempo agotado!';
+    end.querySelector('h2').style.color = 'var(--danger)';
+    end.querySelector('p').textContent = 'El servidor sigue bloqueado. ¿Lo intentas de nuevo?';
+  }
+  document.getElementById('final-score').textContent = score + ' pts';
+  const msgs = ['⭐ Aprendiz digital', '🔥 Analista de archivos', '💎 Experto en extensiones', '🚀 Maestro del servidor'];
+  document.getElementById('final-msg').textContent = score < 100 ? msgs[0] : score < 200 ? msgs[1] : score < 300 ? msgs[2] : msgs[3];
+}
+
+function restartGame() { init(); }
+
+init();
+</script>
+</body>
+</html>
